@@ -37,7 +37,6 @@ const Sidebar = ({ onItemClick }) => {
           { id: 'previous-winners', icon: faAward, label: 'Previous Won Artists' },
           { id: 'sponsors', icon: faHandshake, label: 'Sponsors Information' },
           { id: 'gallery', icon: faImages, label: 'Gallery Images' },
-          { id: 'contact', icon: faEnvelope, label: 'Contact Us Information' },
         ].map(({ id, icon, label }) => (
           <div
             key={id}

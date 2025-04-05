@@ -1,187 +1,418 @@
-import React, { useState, useEffect, useRef, useCallback } from "react";
-import { motion, AnimatePresence } from "framer-motion";
-import { FaPlus, FaTrash, FaUpload, FaFolder, FaImage, FaTag, FaList, FaThLarge, FaTimes, FaCheck } from "react-icons/fa";
+import React, { useState, useEffect, useCallback } from 'react';
+import { Trash2, Edit, UploadCloud, Image as ImageIcon } from 'react-feather';
 
-const GalleryManager = () => {
-  const [folders, setFolders] = useState([]);
-  const [selectedFolderId, setSelectedFolderId] = useState(null);
-  const [uploadedImages, setUploadedImages] = useState([]);
-  const [dragOver, setDragOver] = useState(null);
-  const [isCreatingFolder, setIsCreatingFolder] = useState(false);
-  const [newFolderName, setNewFolderName] = useState("");
-  const [view, setView] = useState("grid"); // 'grid' or 'list'
-  const [filterTag, setFilterTag] = useState(null);
+const GalleryPage = () => {
+  const [galleryItems, setGalleryItems] = useState([]);
+  const [newImages, setNewImages] = useState([]);
+  const [isUploading, setIsUploading] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(0);
+  const [isEditing, setIsEditing] = useState(false);
+  const [editGalleryItem, setEditGalleryItem] = useState(null);
+  const [draggedIndex, setDraggedIndex] = useState(null);
+  const [error, setError] = useState(null);
 
-  // Load sample gallery data (Replace with API call later)
-  useEffect(() => {
-    setFolders([
-      {
-        id: "1",
-        name: "Award Round 1",
-        images: [
-          { id: "1-1", url: "https://placehold.co/600x400", title: "Image 1-1", caption: "Caption 1-1", tags: ["award", "round1"] },
-          { id: "1-2", url: "https://placehold.co/600x400", title: "Image 1-2", caption: "Caption 1-2", tags: ["music", "event"] },
-        ],
-      },
-      {
-        id: "2",
-        name: "Award Round 2",
-        images: [{ id: "2-1", url: "https://placehold.co/600x400", title: "Image 2-1", caption: "Caption 2-1", tags: ["winners"] }],
-      },
-    ]);
+  // Helper function for drag and drop
+  const reorderImages = (startIndex, endIndex) => {
+    const reorderedImages = [...newImages];
+    const [movedImage] = reorderedImages.splice(startIndex, 1);
+    reorderedImages.splice(endIndex, 0, movedImage);
+    setNewImages(reorderedImages);
+    setDraggedIndex(endIndex);
+  };
+
+  // Fetch gallery items from the backend
+  const fetchGalleryItems = useCallback(async () => {
+    try {
+      const response = await fetch('http://localhost:5000/api/gallery');
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      const data = await response.json();
+      setGalleryItems(data);
+    } catch (error) {
+      setError(error.message);
+      console.error('Error fetching gallery items:', error);
+    }
   }, []);
 
-  // Handle Drag & Drop
-  const handleDragEnter = (e, folderId) => {
-    e.preventDefault();
-    setDragOver(folderId);
-  };
-  const handleDragLeave = (e) => {
-    e.preventDefault();
-    setDragOver(null);
-  };
-  const handleDrop = (e, folderId) => {
-    e.preventDefault();
-    setDragOver(null);
-    handleImageUpload(e.dataTransfer.files, folderId);
-  };
+  useEffect(() => {
+    fetchGalleryItems();
+  }, [fetchGalleryItems]);
 
-  // Upload Images
-  const handleImageUpload = (newImages, folderId) => {
-    const files = Array.from(newImages).filter((file) => file.type.startsWith("image/"));
-    if (files.length === 0) return;
-
-    const newImageObjects = files.map((file) => ({
-      url: URL.createObjectURL(file),
-      file,
-    }));
-
-    setUploadedImages([...uploadedImages, ...newImageObjects]);
-    setSelectedFolderId(folderId);
+  // Handle image upload
+  const handleImageUpload = (event) => {
+    const files = event.target.files;
+    if (files && files.length > 0) {
+      if (files.length <= 10) {
+        const validImages = [];
+        for (let i = 0; i < files.length; i++) {
+          if (files[i].type.startsWith('image/')) {
+            validImages.push(files[i]);
+          } else {
+            setError('Invalid file type. Please select only image files.');
+            return;
+          }
+        }
+        setNewImages(validImages);
+        setError(null);
+      } else {
+        setError('You can only upload a maximum of 10 images.');
+      }
+    }
   };
 
-  // Remove Image
-  const handleRemoveImage = (folderId, imageId) => {
-    setFolders((prev) =>
-      prev.map((folder) =>
-        folder.id === folderId ? { ...folder, images: folder.images.filter((img) => img.id !== imageId) } : folder
-      )
-    );
+  // Handle gallery item creation (Post Gallery)
+  const handleCreateGalleryItem = async () => {
+    if (newImages.length === 0) {
+      setError('Please select images to upload.');
+      return;
+    }
+
+    setIsUploading(true);
+    setUploadProgress(0);
+
+    const formData = new FormData();
+    newImages.forEach((image) => {
+      formData.append('images', image);
+    });
+
+    try {
+      const response = await fetch('http://localhost:5000/api/gallery', {
+        method: 'POST',
+        body: formData,
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      // Mock upload progress
+      const totalSize = newImages.reduce((acc, file) => acc + file.size, 0);
+      let uploaded = 0;
+      const interval = setInterval(() => {
+        uploaded += Math.floor(totalSize / 10);
+        const progress = Math.min(100, Math.round((uploaded / totalSize) * 100));
+        setUploadProgress(progress);
+        if (progress >= 100) {
+          clearInterval(interval);
+        }
+      }, 300);
+
+      const newGalleryItem = await response.json();
+      setGalleryItems((prevItems) => [...prevItems, newGalleryItem]);
+      setNewImages([]);
+      setIsUploading(false);
+      setUploadProgress(0);
+      setError(null);
+
+    } catch (error) {
+      setError(error.message);
+      console.error('Error creating gallery item:', error);
+      setIsUploading(false);
+      setUploadProgress(0);
+    }
   };
 
-  // Create New Folder
-  const handleCreateFolder = () => {
-    if (!newFolderName.trim()) return;
-    setFolders([...folders, { id: `folder-${Date.now()}`, name: newFolderName, images: [] }]);
-    setNewFolderName("");
-    setIsCreatingFolder(false);
+  // Handle gallery item deletion
+  const handleDeleteGalleryItem = async (id) => {
+    try {
+      const response = await fetch(`http://localhost:5000/api/gallery/${id}`, {
+        method: 'DELETE',
+      });
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      setGalleryItems((prevItems) => prevItems.filter((item) => item._id !== id));
+    } catch (error) {
+      setError(error.message);
+      console.error('Error deleting gallery item:', error);
+    }
   };
 
-  // Edit Image
-  const handleEditImage = (folderId, imageId, newTitle, newCaption, newTags) => {
-    setFolders((prev) =>
-      prev.map((folder) =>
-        folder.id === folderId
-          ? {
-              ...folder,
-              images: folder.images.map((image) =>
-                image.id === imageId ? { ...image, title: newTitle, caption: newCaption, tags: newTags } : image
-              ),
-            }
-          : folder
-      )
-    );
+  // Handle editing a gallery item
+  const handleEditGalleryItem = (item) => {
+    setIsEditing(true);
+    setEditGalleryItem(item);
+
+    const files = item.images.map(img => {
+      return fetch(img.secure_url)
+        .then(res => res.blob())
+        .then(blob => {
+          const file = new File([blob], `image-${img.public_id}.jpg`, { type: 'image/jpeg' });
+          return file;
+        });
+    });
+
+    Promise.all(files).then(resolvedFiles => {
+      setNewImages(resolvedFiles);
+    })
   };
 
-  const getAllTags = () => {
-    const tags = new Set();
-    folders.forEach((folder) => folder.images.forEach((img) => img.tags?.forEach((tag) => tags.add(tag))));
-    return Array.from(tags);
-  };
-  const allTags = getAllTags();
+  // Handle updating a gallery item
+  const handleUpdateGalleryItem = async () => {
+    if (!editGalleryItem) return;
 
-  const filteredFolders = filterTag
-    ? folders.map((folder) => ({ ...folder, images: folder.images.filter((img) => img.tags?.includes(filterTag)) }))
-    : folders;
+    setIsUploading(true);
+    setUploadProgress(0);
+
+    const formData = new FormData();
+
+    editGalleryItem.images.forEach((img) => {
+      formData.append('existingImages', JSON.stringify(img));
+    });
+
+    newImages.forEach((image) => {
+      formData.append('images', image);
+    });
+
+    try {
+      const response = await fetch(`http://localhost:5000/api/gallery/${editGalleryItem._id}`, {
+        method: 'PUT',
+        body: formData,
+      });
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      const totalSize = newImages.reduce((acc, file) => acc + file.size, 0);
+      let uploaded = 0;
+      const interval = setInterval(() => {
+        uploaded += Math.floor(totalSize / 10);
+        const progress = Math.min(100, Math.round((uploaded / totalSize) * 100));
+        setUploadProgress(progress);
+        if (progress >= 100) {
+          clearInterval(interval);
+        }
+      }, 300);
+
+      const updatedGalleryItem = await response.json();
+
+      setGalleryItems(prevItems =>
+        prevItems.map(item =>
+          item._id === updatedGalleryItem._id ? updatedGalleryItem : item
+        )
+      );
+      setIsUploading(false);
+      setIsEditing(false);
+      setEditGalleryItem(null);
+      setNewImages([]);
+      setUploadProgress(0);
+      setError(null);
+    } catch (error) {
+      setError(error.message);
+      console.error('Error updating gallery item:', error);
+      setIsUploading(false);
+    }
+  };
 
   return (
-    <div className="p-6">
-      <h2 className="text-3xl font-bold mb-6">Gallery Management</h2>
+    <div className="p-8">
+      <h1 className="text-3xl font-semibold mb-8 text-gray-800">Gallery Management</h1>
+      {error && (
+        <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative mb-4">
+          <strong className="font-bold">Error: </strong> 
+          <span className="block sm:inline">{error}</span>
+        </div>
+      )}
 
-      {/* Create Folder Button */}
-      <button onClick={() => setIsCreatingFolder(true)} className="bg-blue-500 text-white px-4 py-2 rounded flex items-center">
-        <FaPlus className="mr-2" /> Create Folder
-      </button>
-
-      {/* Folder List */}
-      <div className="mt-6 flex gap-4 flex-wrap">
-        {filteredFolders.map((folder) => (
-          <div
-            key={folder.id}
-            className="p-4 border rounded shadow-md w-64"
-            onDragEnter={(e) => handleDragEnter(e, folder.id)}
-            onDragOver={(e) => e.preventDefault()}
-            onDrop={(e) => handleDrop(e, folder.id)}
-          >
-            <h3 className="text-lg font-semibold flex items-center">
-              <FaFolder className="mr-2" /> {folder.name}
-            </h3>
-            <div className="mt-4">
-              {folder.images.length > 0 ? (
-                <div className={view === "grid" ? "grid grid-cols-2 gap-2" : "flex flex-col gap-2"}>
-                  {folder.images.map((image) => (
-                    <div key={image.id} className="relative group">
-                      <img src={image.url} alt={image.title} className="w-full h-32 object-cover rounded" />
-                      <button
-                        onClick={() => handleRemoveImage(folder.id, image.id)}
-                        className="absolute top-2 right-2 bg-red-500 text-white p-1 rounded opacity-0 group-hover:opacity-100"
-                      >
-                        <FaTrash />
-                      </button>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <p className="text-gray-500 text-sm">No images uploaded</p>
-              )}
-            </div>
-          </div>
-        ))}
-      </div>
-
-      {/* Drag & Drop Upload */}
-      {selectedFolderId && (
+      <div className="mb-8">
+        <h2 className="text-xl font-semibold mb-4 text-gray-700">
+          {isEditing ? 'Edit Gallery' : 'Upload Images'}
+        </h2>
         <div
-          className="mt-6 p-4 border-2 border-dashed border-gray-400 text-center cursor-pointer"
-          onDrop={(e) => handleDrop(e, selectedFolderId)}
+          className="border-4 border-dashed rounded-xl p-12 text-center cursor-pointer transition-colors border-gray-300 hover:border-gray-400"
+          onDrop={(e) => {
+            e.preventDefault();
+            const files = e.dataTransfer.files;
+            if (files && files.length > 0) {
+              if (files.length <= 10) {
+                const validImages = [];
+                for (let i = 0; i < files.length; i++) {
+                  if (files[i].type.startsWith('image/')) {
+                    validImages.push(files[i]);
+                  } else {
+                    setError('Invalid file type. Please select only image files.');
+                    return;
+                  }
+                }
+                setNewImages(validImages);
+                setError(null);
+              } else {
+                setError('You can only upload a maximum of 10 images.');
+              }
+            }
+          }}
           onDragOver={(e) => e.preventDefault()}
         >
-          <FaUpload className="text-2xl mx-auto mb-2" />
-          <p>Drag & Drop Images Here</p>
+          <input
+            type="file"
+            multiple
+            accept="image/*"
+            onChange={handleImageUpload}
+            className="hidden"
+            id="fileInput"
+          />
+          <label htmlFor="fileInput" className="cursor-pointer">
+            <UploadCloud className="w-12 h-12 mx-auto text-gray-600 mb-3" />
+            <p className="text-lg text-gray-700">
+              Drag and drop up to 10 images here, or click to select files.
+            </p>
+            <p className="text-gray-500 text-sm mt-1">(Only images are accepted)</p>
+          </label>
         </div>
-      )}
 
-      {/* Folder Creation Modal */}
-      {isCreatingFolder && (
-        <div className="fixed inset-0 flex items-center justify-center bg-gray-800 bg-opacity-50">
-          <div className="bg-white p-6 rounded shadow-md">
-            <h3 className="text-lg font-bold mb-4">Create New Folder</h3>
-            <input
-              type="text"
-              placeholder="Folder Name"
-              value={newFolderName}
-              onChange={(e) => setNewFolderName(e.target.value)}
-              className="w-full p-2 border rounded"
-            />
-            <div className="mt-4 flex justify-end">
-              <button onClick={() => setIsCreatingFolder(false)} className="mr-2">Cancel</button>
-              <button onClick={handleCreateFolder} className="bg-blue-500 text-white px-4 py-2 rounded">Create</button>
+        <div className="mt-6 flex flex-wrap gap-4 justify-center">
+          {newImages.map((image, index) => (
+            <div
+              key={index}
+              className="relative group"
+              draggable={true}
+              onDragStart={(e) => {
+                e.preventDefault();
+                setDraggedIndex(index);
+              }}
+              onDragOver={(e) => e.preventDefault()}
+              onDrop={(e) => {
+                e.preventDefault();
+                let targetIndex = index;
+                const element = e.currentTarget;
+                if (element) {
+                  const rect = element.getBoundingClientRect();
+                  const centerX = rect.left + rect.width / 2;
+                  const parent = element.parentElement;
+                  if (parent) {
+                    for (let i = 0; i < parent.children.length; i++) {
+                      const child = parent.children[i];
+                      if (child !== element) {
+                        const childRect = child.getBoundingClientRect();
+                        if (centerX > childRect.left && centerX < childRect.right) {
+                          targetIndex = i;
+                          break;
+                        }
+                      }
+                    }
+                  }
+                }
+
+                if (targetIndex !== index) {
+                  reorderImages(index, targetIndex);
+                }
+              }}
+              style={{
+                zIndex: draggedIndex === index ? 10 : 1,
+              }}
+            >
+              <img
+                src={URL.createObjectURL(image)}
+                alt={`Preview ${index + 1}`}
+                className="w-24 h-24 object-cover rounded-md border border-gray-200"
+              />
+              {draggedIndex === index && (
+                <div className="absolute inset-0 bg-black/50 rounded-md flex items-center justify-center">
+                  <p className="text-white text-sm">Dragging</p>
+                </div>
+              )}
+              <button
+                onClick={() =>
+                  setNewImages((prevImages) => prevImages.filter((_, i) => i !== index))
+                }
+                className="absolute top-1 right-1 bg-red-500 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
+              >
+                <Trash2 className="w-4 h-4" />
+              </button>
             </div>
-          </div>
+          ))}
         </div>
-      )}
+
+        {isUploading && (
+          <div className="mt-4">
+            <div className="bg-gray-200 rounded-full h-2.5">
+              <div
+                className="bg-red-600 h-2.5 rounded-full"
+                style={{ width: `${uploadProgress}%` }}
+              >
+                <span className="sr-only">{uploadProgress}% Complete</span>
+              </div>
+            </div>
+            <p className="text-sm text-gray-500 mt-1">{uploadProgress}%</p>
+          </div>
+        )}
+
+        <div className="mt-6 flex gap-4 justify-center">
+          <button
+            onClick={isEditing ? handleUpdateGalleryItem : handleCreateGalleryItem}
+            disabled={isUploading || (newImages.length === 0 && !isEditing)}
+            className="bg-red-600 text-white hover:bg-red-700 transition-colors px-6 py-2 rounded-md"
+          >
+            {isUploading ? (
+              <>
+                <svg
+                  className="animate-spin h-5 w-5 mr-3"
+                  xmlns="http://www.w3.org/2000/svg"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                >
+                  <circle
+                    className="opacity-25"
+                    cx="12"
+                    cy="12"
+                    r="10"
+                    stroke="currentColor"
+                    strokeWidth="4"
+                  ></circle>
+                  <path
+                    className="opacity-75"
+                    fill="currentColor"
+                    d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                  ></path>
+                </svg>
+                Uploading...
+              </>
+            ) : isEditing ? 'Update Gallery' : 'Post Gallery'}
+          </button>
+        </div>
+      </div>
+      <div className="mt-8">
+        <h2 className="text-2xl font-semibold text-gray-700 mb-4">Existing Gallery Items</h2>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {galleryItems.map((item) => (
+            <div key={item._id} className="bg-white rounded-lg shadow-md p-4 relative group">
+              <div className="grid grid-cols-2 gap-3 mb-4">
+                {item.images.map((img, index) => (
+                  <div key={img.public_id} className="relative">
+                    <img
+                      src={img.secure_url}
+                      alt={`Gallery ${index + 1}`}
+                      className="w-full h-32 object-cover rounded-xl"
+                    />
+                    <div className="absolute top-1 right-1 bg-white rounded-full p-1 opacity-70">
+                        <ImageIcon className="h-4 w-4 text-gray-600" />
+                    </div>
+                  </div>
+                ))}
+              </div>
+              <p className="text-gray-500 text-sm">
+                Uploaded: {new Date(item.createdAt).toLocaleDateString()}
+              </p>
+              <div className="absolute top-2 right-2 space-x-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                <button
+                  onClick={() => handleEditGalleryItem(item)}
+                  className="text-blue-500 hover:text-blue-700 px-2 py-1 rounded-md bg-white/80"
+                >
+                  <Edit className="h-4 w-4" />
+                </button>
+                <button
+                  onClick={() => handleDeleteGalleryItem(item._id)}
+                  className="text-red-500 hover:text-red-700 px-2 py-1 rounded-md bg-white/80"
+                >
+                  <Trash2 className="h-4 w-4" />
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
     </div>
   );
 };
 
-export default GalleryManager;
+export default GalleryPage;

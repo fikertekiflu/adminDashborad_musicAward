@@ -5,138 +5,156 @@ import axios from 'axios';
 function AboutUs() {
   const [aboutUsData, setAboutUsData] = useState([]);
   const [currentPage, setCurrentPage] = useState(1);
-  const itemsPerPage = 5;
+  const [itemsPerPage, setItemsPerPage] = useState(5);
   const [activeAction, setActiveAction] = useState(null);
   const [checkedItems, setCheckedItems] = useState([]);
-  const [showAddForm, setShowAddForm] = useState(false);
+  const [showForm, setShowForm] = useState(false);
   const [selectedImage, setSelectedImage] = useState(null);
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
-  const fileInputRef = useRef(null);
+  const [editingId, setEditingId] = useState(null);
   const [successMessage, setSuccessMessage] = useState('');
+  const fileInputRef = useRef(null);
+  const [loading, setLoading] = useState(true);
 
   const totalPages = Math.ceil(aboutUsData.length / itemsPerPage);
   const currentItems = aboutUsData.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
 
-  // Fetch About Us data from backend
+  // Fetch data from backend on page load
   useEffect(() => {
     const fetchAboutUsData = async () => {
+      setLoading(true);
       try {
-        const response = await axios.get('http://localhost:5000/api/aboutus'); // Adjust URL as needed
-        setAboutUsData(response.data);
+        const response = await axios.get('http://localhost:5000/api/aboutus');
+        if (Array.isArray(response.data.data) && response.data.data.length > 0) {
+          setAboutUsData(response.data.data); // Access response.data.data here
+        } else if (Array.isArray(response.data.data) && response.data.data.length === 0) {
+          setAboutUsData([]);
+        } else {
+          console.error('Data fetched is not in expected format or is empty', response.data);
+          setAboutUsData([]);
+        }
       } catch (error) {
-        console.error("Error fetching About Us data:", error);
+        console.error('Error fetching About Us data:', error);
+        setAboutUsData([]);
+      } finally {
+        setLoading(false);
       }
     };
     fetchAboutUsData();
   }, []);
 
-  // Handle page change
+  useEffect(() => {
+    if (successMessage) {
+      const timeout = setTimeout(() => setSuccessMessage(''), 3000);
+      return () => clearTimeout(timeout);
+    }
+  }, [successMessage]);
+
   const handlePageChange = (page) => {
     if (page >= 1 && page <= totalPages) {
       setCurrentPage(page);
     }
   };
 
-  // Handle action click (show more options)
   const handleActionClick = (id) => {
     setActiveAction(id === activeAction ? null : id);
   };
 
-  // Handle checkbox change for selection
   const handleCheckboxChange = (id) => {
-    if (checkedItems.includes(id)) {
-      setCheckedItems(checkedItems.filter((itemId) => itemId !== id));
-    } else {
-      setCheckedItems([...checkedItems, id]);
-    }
+    setCheckedItems(prev => prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id]);
   };
 
-  // Show Add Information Form
-  const handleAddClick = () => {
-    setShowAddForm(true);
-  };
-
-  // Handle form cancel
-  const handleCancelClick = () => {
-    setShowAddForm(false);
-    setSelectedImage(null);
+  const resetForm = () => {
+    setShowForm(false);
     setTitle('');
     setDescription('');
-  };
-
-  // Handle image change
-  const handleImageChange = (event) => {
-    const file = event.target.files[0];
-    if (file) {
-      setSelectedImage(URL.createObjectURL(file));
+    setSelectedImage(null);
+    setEditingId(null);
+    if (fileInputRef.current) {
+      fileInputRef.current.value = null;
     }
   };
 
-  // Handle drag & drop
-  const handleDrop = (event) => {
-    event.preventDefault();
-    const file = event.dataTransfer.files[0];
-    if (file) {
-      setSelectedImage(URL.createObjectURL(file));
-    }
+  const handleImageChange = (e) => {
+    const file = e.target.files[0];
+    if (file) setSelectedImage(file);
   };
 
-  const handleDragOver = (event) => {
-    event.preventDefault();
+  const handleDrop = (e) => {
+    e.preventDefault();
+    const file = e.dataTransfer.files[0];
+    if (file) setSelectedImage(file);
   };
 
-  // Trigger file input browse
-  const handleBrowseClick = () => {
-    fileInputRef.current.click();
-  };
+  const handleDragOver = (e) => e.preventDefault();
 
-  // Handle form submission (Add Information)
-  const handleAddInformation = async (event) => {
-    event.preventDefault();
+  const handleBrowseClick = () => fileInputRef.current.click();
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
 
     const formData = new FormData();
     formData.append('title', title);
     formData.append('description', description);
-    if (fileInputRef.current?.files[0]) {
+
+    if (fileInputRef.current && fileInputRef.current.files[0]) {
       formData.append('image', fileInputRef.current.files[0]);
     }
-    formData.append('status', 'pending'); // Marking the entry as pending for review
 
     try {
-      const response = await axios.post('http://localhost:5000/api/aboutus', formData, {
-        headers: { 'Content-Type': 'multipart/form-data' },
-      });
-      setAboutUsData([response.data.data, ...aboutUsData]);
-      setSuccessMessage('Information added and pending approval!');
-      handleCancelClick();
+      let response;
+      if (editingId) {
+        response = await axios.put(`http://localhost:5000/api/aboutus/${editingId}`, formData, {
+          headers: { 'Content-Type': 'multipart/form-data' },
+        });
+
+        setAboutUsData(prev =>
+          prev.map(item => (item._id === editingId ? response.data.data : item))
+        );
+        setSuccessMessage('Information updated successfully!');
+      } else {
+        response = await axios.post('http://localhost:5000/api/aboutus', formData, {
+          headers: { 'Content-Type': 'multipart/form-data' },
+        });
+
+        setAboutUsData(prev => [response.data.data, ...prev]);
+        setSuccessMessage('Information added successfully!');
+      }
+
+      resetForm();
+
     } catch (error) {
-      console.error("Error adding About Us information:", error);
-      setSuccessMessage('Error adding information.');
+      console.error("Error submitting About Us info:", error);
+      setSuccessMessage('Error processing request.');
     }
   };
 
-  // Handle Edit Information
-  const handleEditInformation = async (id) => {
-    // Find the item and update its content (this can be expanded with an edit form)
-    const updatedItem = aboutUsData.find(item => item._id === id);
-    setTitle(updatedItem.title);
-    setDescription(updatedItem.description);
-    setSelectedImage(updatedItem.image);
-    setShowAddForm(true);
+  const handleEditInformation = (id) => {
+    const item = aboutUsData.find(item => item._id === id);
+    if (item) {
+      setEditingId(id);
+      setTitle(item.title);
+      setDescription(item.description);
+      setSelectedImage(item.image);
+      setShowForm(true);
+    }
   };
 
-  // Handle Delete Information
   const handleDeleteInformation = async (id) => {
     try {
-      const response = await axios.delete(`http://localhost:5000/api/aboutus/${id}`);
-      setAboutUsData(aboutUsData.filter((item) => item._id !== id));
+      await axios.delete(`http://localhost:5000/api/aboutus/${id}`);
+      setAboutUsData(prev => prev.filter(item => item._id !== id));
       setSuccessMessage('Information deleted successfully!');
     } catch (error) {
-      console.error("Error deleting About Us information:", error);
-      setSuccessMessage('Error deleting information.');
+      console.error("Error deleting About Us info:", error);
+      setSuccessMessage('Error deleting request.');
     }
   };
+
+  if (loading) {
+    return <div className="flex justify-center items-center h-screen">Loading...</div>;
+  }
 
   return (
     <div className="bg-gray-50 rounded-2xl shadow-lg p-8 space-y-8">
@@ -146,55 +164,57 @@ function AboutUs() {
           <p className="text-sm text-gray-500 mt-1">Admin &gt; About Us Information</p>
         </div>
         <button
-          className="bg-red-600 text-white rounded-lg px-6 py-2 text-sm font-semibold hover:bg-red-700 transition-colors duration-200"
-          onClick={handleAddClick}
+          className="bg-red-600 text-white rounded-lg px-6 py-2 text-sm font-semibold hover:bg-red-700"
+          onClick={() => {
+            resetForm();
+            setShowForm(true);
+          }}
         >
           + Add Information
         </button>
       </div>
 
-      {/* Success Message */}
       {successMessage && (
-        <div className="bg-green-100 text-green-700 p-4 rounded-md mt-4">
+        <div className="bg-green-100 text-green-700 p-4 rounded-md">
           <p>{successMessage}</p>
         </div>
       )}
 
       <AnimatePresence>
-        {showAddForm && (
+        {showForm && (
           <motion.div
-            key="add-form"
+            key="form"
             className="bg-white rounded-lg shadow-md p-6 mt-6"
             initial={{ opacity: 0, y: -20 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: 20 }}
             transition={{ duration: 0.3 }}
           >
-            <h2 className="text-2xl font-semibold mb-4 text-gray-800">Add New Information</h2>
+            <h2 className="text-2xl font-semibold mb-4 text-gray-800">{editingId ? 'Edit Information' : 'Add New Information'}</h2>
 
             <div className="mb-4">
-              <label className="block text-gray-700 text-sm font-medium mb-2">Title</label>
+              <label className="block text-sm font-medium text-gray-700">Title</label>
               <input
                 type="text"
-                className="border border-gray-300 rounded-lg p-3 w-full text-sm focus:ring-red-500 focus:border-red-500"
+                className="w-full border border-gray-300 rounded-lg p-3 mt-1 focus:ring-red-500 focus:border-red-500 text-sm"
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
-                placeholder="Enter the title"
+                placeholder="Enter title"
               />
             </div>
 
             <div className="mb-4">
-              <label className="block text-gray-700 text-sm font-medium mb-2">About Us Description</label>
+              <label className="block text-sm font-medium text-gray-700">Description</label>
               <textarea
-                className="border border-gray-300 rounded-lg p-3 w-full h-32 resize-none focus:ring-red-500 focus:border-red-500"
-                placeholder="Add description here..."
+                className="w-full h-32 border border-gray-300 rounded-lg p-3 mt-1 focus:ring-red-500 focus:border-red-500 resize-none text-sm"
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
+                placeholder="Enter description"
               />
             </div>
 
             <div className="mb-4">
-              <label className="block text-gray-700 text-sm font-medium mb-2">About Us Image</label>
+              <label className="block text-sm font-medium text-gray-700">Image</label>
               <div
                 className="border-dashed border-2 border-gray-300 rounded-lg p-6 flex flex-col items-center justify-center cursor-pointer"
                 onDrop={handleDrop}
@@ -208,13 +228,17 @@ function AboutUs() {
                   accept="image/*"
                 />
                 {selectedImage ? (
-                  <img src={selectedImage} alt="Selected" className="max-h-40 max-w-full rounded-lg" />
+                  <img
+                    src={typeof selectedImage === 'string' ? selectedImage : URL.createObjectURL(selectedImage)}
+                    alt="Preview"
+                    className="max-h-40 max-w-full rounded-lg"
+                  />
                 ) : (
                   <p className="text-gray-500">Drag & Drop or Click to Browse</p>
                 )}
                 <button
                   type="button"
-                  className="mt-4 bg-red-600 text-white px-6 py-2 rounded-lg text-sm font-semibold hover:bg-red-700 transition-colors duration-200"
+                  className="mt-4 bg-red-600 text-white px-6 py-2 rounded-lg text-sm font-semibold hover:bg-red-700"
                   onClick={handleBrowseClick}
                 >
                   Browse
@@ -224,116 +248,97 @@ function AboutUs() {
 
             <div className="flex justify-end space-x-4 mt-6">
               <button
-                className="border border-gray-300 rounded-lg px-6 py-2 text-sm font-semibold hover:bg-gray-100 transition-colors duration-200"
-                onClick={handleCancelClick}
+                className="border border-gray-300 rounded-lg px-6 py-2 text-sm font-semibold hover:bg-gray-100"
+                onClick={resetForm}
               >
                 Cancel
               </button>
               <button
-                className="bg-red-600 text-white rounded-lg px-6 py-2 text-sm font-semibold hover:bg-red-700 transition-colors duration-200"
-                onClick={handleAddInformation}
+                className="bg-red-600 text-white rounded-lg px-6 py-2 text-sm font-semibold hover:bg-red-700"
+                onClick={handleSubmit}
               >
-                Post Information
+                {editingId ? 'Update' : 'Post'} Information
               </button>
             </div>
           </motion.div>
         )}
       </AnimatePresence>
 
-      {/* Data Table and Pagination */}
-      {!showAddForm && (
+      {!showForm && (
         <>
           <div className="overflow-x-auto rounded-lg shadow-sm">
             <table className="min-w-full divide-y divide-gray-200 table-auto">
               <thead className="bg-gray-100">
                 <tr>
-                  <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">
-                    ID
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">
-                    Description
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">
-                    Posted Date
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">
-                    Attachment
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">
-                    Action
-                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Select</th>
+                  <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Description</th>
+                  <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Date</th>
+                  <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Image</th>
+                  <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Action</th>
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
-                {currentItems.map((item) => (
-                  <tr key={item._id} className="hover:bg-gray-50 transition-colors duration-200">
-                    <td className="px-6 py-4 text-sm text-gray-700 whitespace-nowrap">
-                      <input
-                        type="checkbox"
-                        className={`form-checkbox h-4 w-4 transition-colors duration-200 ${checkedItems.includes(item._id) ? 'text-red-600' : 'text-gray-600'}`}
-                        checked={checkedItems.includes(item._id)}
-                        onChange={() => handleCheckboxChange(item._id)}
-                      />
-                    </td>
-                    <td className="px-6 py-4 text-sm text-gray-700">{item.description}</td>
-                    <td className="px-6 py-4 text-sm text-gray-500 whitespace-nowrap">{item.createdAt}</td>
-                    <td className="px-6 py-4 text-sm text-gray-700 whitespace-nowrap">
-                      <img src={item.image} alt="Attachment" className="h-10 w-10 rounded-lg shadow-md" />
-                    </td>
-                    <td className="px-6 py-4 text-sm text-blue-600 relative">
-                      <div className="cursor-pointer" onClick={() => handleActionClick(item._id)}>
-                        <div className="flex flex-col space-y-1">
-                          <div className={`w-1 h-1 rounded-full ${activeAction === item._id ? 'bg-red-600' : 'bg-gray-600'}`}></div>
-                          <div className={`w-1 h-1 rounded-full ${activeAction === item._id ? 'bg-red-600' : 'bg-gray-600'}`}></div>
-                          <div className={`w-1 h-1 rounded-full ${activeAction === item._id ? 'bg-red-600' : 'bg-gray-600'}`}></div>
-                        </div>
-                      </div>
-                      {activeAction === item._id && (
-                        <div className="absolute top-0 right-0 bg-white shadow-lg rounded-lg p-2 mt-6 space-y-2">
-                          <button onClick={() => handleEditInformation(item._id)} className="text-blue-600">Edit</button>
-                          <button onClick={() => handleDeleteInformation(item._id)} className="text-red-600">Delete</button>
-                        </div>
-                      )}
-                    </td>
+                {currentItems.length === 0 ? (
+                  <tr>
+                    <td colSpan="5" className="text-center py-4 text-gray-500">No data available</td>
                   </tr>
-                ))}
+                ) : (
+                  currentItems.map(item => (
+                    <tr key={item._id} className="hover:bg-gray-50">
+                      <td className="px-6 py-4 text-sm">
+                        <input
+                          type="checkbox"
+                          checked={checkedItems.includes(item._id)}
+                          onChange={() => handleCheckboxChange(item._id)}
+                          className="form-checkbox h-4 w-4 text-red-600"
+                        />
+                      </td>
+                      <td className="px-6 py-4 text-sm">{item.description}</td>
+                      <td className="px-6 py-4 text-sm text-gray-500">{new Date(item.createdAt).toLocaleDateString()}</td>
+                      <td className="px-6 py-4 text-sm">
+                        <img src={item.image} alt={item.title} className="h-16 w-16 object-cover rounded-lg" />
+                      </td>
+                      <td className="px-6 py-4 text-sm">
+                        <div className="flex space-x-3">
+                          <button
+                            className="text-blue-600 hover:text-blue-800"
+                            onClick={() => handleEditInformation(item._id)}
+                          >
+                            Edit
+                          </button>
+                          <button
+                            className="text-red-600 hover:text-red-800"
+                            onClick={() => handleDeleteInformation(item._id)}
+                          >
+                            Delete
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))
+                )}
               </tbody>
             </table>
           </div>
 
-          {/* Pagination */}
-          <div className="flex justify-between items-center mt-8">
-            <div className="flex items-center space-x-2">
-              <p className="text-sm text-gray-600 font-medium">Rows per page:</p>
-              <select className="border border-gray-300 rounded-md p-1 text-sm focus:ring-red-500 focus:border-red-500">
-                <option>5</option>
-                <option>10</option>
-                <option>15</option>
-              </select>
+          <div className="mt-4 flex justify-between items-center">
+            <button
+              onClick={() => handlePageChange(currentPage - 1)}
+              className="text-gray-600"
+              disabled={currentPage === 1}
+            >
+              Previous
+            </button>
+            <div className="text-sm text-gray-600">
+              Page {currentPage} of {totalPages}
             </div>
-            <div className="flex items-center space-x-2">
-              <button
-                className="bg-gray-200 rounded-md px-3 py-2 text-sm text-gray-600 hover:bg-gray-300 transition-colors duration-200"
-                onClick={() => handlePageChange(currentPage - 1)}
-              >
-                {"<"}
-              </button>
-              {Array.from({ length: totalPages }, (_, i) => (
-                <button
-                  key={i + 1}
-                  className={`px-3 py-2 text-sm ${currentPage === i + 1 ? 'bg-red-600 text-white' : 'text-gray-600'}`}
-                  onClick={() => handlePageChange(i + 1)}
-                >
-                  {i + 1}
-                </button>
-              ))}
-              <button
-                className="bg-gray-200 rounded-md px-3 py-2 text-sm text-gray-600 hover:bg-gray-300 transition-colors duration-200"
-                onClick={() => handlePageChange(currentPage + 1)}
-              >
-                {">"}
-              </button>
-            </div>
+            <button
+              onClick={() => handlePageChange(currentPage + 1)}
+              className="text-gray-600"
+              disabled={currentPage === totalPages}
+            >
+              Next
+            </button>
           </div>
         </>
       )}

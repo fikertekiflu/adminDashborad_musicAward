@@ -7,7 +7,7 @@ import Nominees from '../../components/nominees.js/Nominees';
 import Location from '../../components/Location/location';
 // import PreviousWinners from '../../components/PreviousWinners/PreviousWinners';
 import SponsorsPage from '../../components/Sponsors/Sponsors';
-import GalleryManager from '../../components/Gallery/Gallery';
+import GalleryPage from '../../components/Gallery/Gallery';
 // import ContactUs from '../../components/ContactUs/ContactUs';
 
 import Sidebar from '../../components/Sidebar/side';
@@ -35,9 +35,7 @@ function MainDashboard() {
       case 'sponsors':
         return <motion.div initial={{ opacity: 0, x: 50 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -50 }} transition={{ duration: 0.3 }}><SponsorsPage /></motion.div>;
       case 'gallery':
-        return <motion.div initial={{ opacity: 0, x: 50 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -50 }} transition={{ duration: 0.3 }}><GalleryManager /></motion.div>;
-      case 'contact':
-        return <motion.div initial={{ opacity: 0, x: 50 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -50 }} transition={{ duration: 0.3 }}>ContactUs</motion.div>;
+        return <motion.div initial={{ opacity: 0, x: 50 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -50 }} transition={{ duration: 0.3 }}><GalleryPage /></motion.div>;
       default:
         return <motion.div initial={{ opacity: 0, x: 50 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -50 }} transition={{ duration: 0.3 }}>Default Dashboard Content</motion.div>;
     }

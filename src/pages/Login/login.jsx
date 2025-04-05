@@ -22,7 +22,6 @@ function Login() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, password }),
       });
-
       if (response.ok) {
         const data = await response.json();
         localStorage.setItem('token', data.token);
@@ -78,7 +77,6 @@ function Login() {
 
   return (
     <div className="min-h-screen flex bg-gradient-to-r from-red-700 to-white">
-      {/* Left Side - Information */}
       <div className="w-1/2 bg-red-700 text-white flex flex-col justify-center items-center p-12">
         <div className="max-w-xs text-center">
           <img src="/logo.png" alt="Logo" className="w-20 mb-6" />
@@ -89,9 +87,7 @@ function Login() {
         </div>
       </div>
 
-      {/* Right Side - Login or Verification */}
       <div className="w-1/2 p-12 bg-white flex flex-col justify-center shadow-lg rounded-l-xl">
-        {/* Login Form */}
         {!forgotPassword ? (
           <>
             <h2 className="text-3xl font-semibold text-gray-800 mb-4">Login to Your Account</h2>
@@ -152,7 +148,6 @@ function Login() {
           </>
         ) : (
           <>
-            {/* OTP Verification */}
             <h2 className="text-3xl font-semibold text-gray-800 mb-4">Reset Your Password</h2>
             <p className="text-sm text-gray-500 mb-6">Enter your phone number to receive a verification code.</p>
             {!otpSent ? (
