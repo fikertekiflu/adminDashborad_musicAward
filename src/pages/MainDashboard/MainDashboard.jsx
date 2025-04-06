@@ -5,7 +5,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import AboutUs from '../../components/AboutUs/aboutUs';
 import Nominees from '../../components/nominees.js/Nominees';
 import Location from '../../components/Location/location';
-// import PreviousWinners from '../../components/PreviousWinners/PreviousWinners';
+import WonArtistsAdmin from '../../components/PreviousWinners/PreviousWinners';
 import SponsorsPage from '../../components/Sponsors/Sponsors';
 import GalleryPage from '../../components/Gallery/Gallery';
 // import ContactUs from '../../components/ContactUs/ContactUs';
@@ -31,7 +31,7 @@ function MainDashboard() {
       case 'location':
         return <motion.div initial={{ opacity: 0, x: 50 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -50 }} transition={{ duration: 0.3 }}><Location /></motion.div>;
       case 'previous-winners':
-        return <motion.div initial={{ opacity: 0, x: 50 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -50 }} transition={{ duration: 0.3 }}>PreviousWinners</motion.div>;
+        return <motion.div initial={{ opacity: 0, x: 50 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -50 }} transition={{ duration: 0.3 }}><WonArtistsAdmin /></motion.div>;
       case 'sponsors':
         return <motion.div initial={{ opacity: 0, x: 50 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -50 }} transition={{ duration: 0.3 }}><SponsorsPage /></motion.div>;
       case 'gallery':

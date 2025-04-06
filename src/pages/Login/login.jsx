@@ -6,9 +6,10 @@ function Login() {
   const [password, setPassword] = useState('');
   const [rememberMe, setRememberMe] = useState(false);
   const [forgotPassword, setForgotPassword] = useState(false);
-  const [phoneNumber, setPhoneNumber] = useState('');
   const [otp, setOtp] = useState('');
   const [otpSent, setOtpSent] = useState(false);
+  const [resetToken, setResetToken] = useState(''); // Store the reset token
+  const [newPassword, setNewPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
 
@@ -36,42 +37,69 @@ function Login() {
     }
     setLoading(false);
   };
-
   // Handle OTP request
   const handleSendOtp = async () => {
-    if (!phoneNumber) return alert('Please enter your phone number.');
+    if (!email) return alert('Please enter your email.');
     try {
-      const response = await fetch('/api/send-otp', {
+      const response = await fetch('http://localhost:5000/api/request-password', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ phoneNumber }),
+        body: JSON.stringify({ email }),
       });
       if (response.ok) {
         setOtpSent(true);
       } else {
-        alert('Failed to send OTP. Please try again.');
+        const errorData = await response.json();
+        alert(errorData.message || 'Failed to send verification code. Please try again.');
       }
     } catch (error) {
       console.error('OTP error:', error);
+      alert('An error occurred while requesting verification code.');
     }
   };
 
   // Handle OTP Verification
   const handleVerifyOtp = async () => {
-    if (!otp) return alert('Please enter the OTP.');
+    if (!otp) return alert('Please enter the verification code.');
     try {
-      const response = await fetch('/api/verify-otp', {
+      const response = await fetch('http://localhost:5000/api/verify-otp', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ phoneNumber, otp }),
+        body: JSON.stringify({ email, otp }),
       });
       if (response.ok) {
-        alert('OTP verified! You can now reset your password.');
+        const data = await response.json();
+        setResetToken(data.resetToken); // Store the reset token
+        alert('Verification successful! You can now reset your password.');
       } else {
-        alert('Invalid OTP. Please try again.');
+        const errorData = await response.json();
+        alert(errorData.message || 'Invalid or expired verification code. Please try again.');
       }
     } catch (error) {
       console.error('OTP verification error:', error);
+      alert('An error occurred during verification.');
+    }
+  };
+
+  // Handle Password Reset
+  const handleResetPassword = async () => {
+    if (!newPassword) return alert('Please enter your new password.');
+    try {
+      const response = await fetch('http://localhost:5000/api/reset-password', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password: newPassword, resetToken }),
+      });
+      if (response.ok) {
+        alert('Password reset successfully! You can now log in with your new password.');
+        setForgotPassword(false); // Go back to login form
+      } else {
+        const errorData = await response.json();
+        alert(errorData.message || 'Failed to reset password. Please try again.');
+      }
+    } catch (error) {
+      console.error('Password reset error:', error);
+      alert('An error occurred while resetting your password.');
     }
   };
 
@@ -149,34 +177,53 @@ function Login() {
         ) : (
           <>
             <h2 className="text-3xl font-semibold text-gray-800 mb-4">Reset Your Password</h2>
-            <p className="text-sm text-gray-500 mb-6">Enter your phone number to receive a verification code.</p>
+            <p className="text-sm text-gray-500 mb-6">Enter your email to receive a verification code.</p>
             {!otpSent ? (
               <>
                 <div className="mb-6">
-                  <label className="block text-gray-700 text-sm font-medium mb-2">Phone Number</label>
+                  <label className="block text-gray-700 text-sm font-medium mb-2">Email</label>
                   <input
                     className="border border-gray-300 rounded-lg w-full py-4 px-6 text-gray-700 focus:outline-none focus:ring-2 focus:ring-red-500 transition-all"
                     type="text"
-                    placeholder="Enter your phone number"
-                    value={phoneNumber}
-                    onChange={(e) => setPhoneNumber(e.target.value)}
+                    placeholder="Enter your email"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
                   />
                 </div>
                 <button className="bg-red-600 text-white font-bold py-4 px-6 rounded-lg w-full" onClick={handleSendOtp}>
-                  SEND OTP
+                  SEND VERIFICATION CODE
+                </button>
+              </>
+            ) : resetToken ? (
+              <>
+                <div className="mb-6">
+                  <label className="block text-gray-700 text-sm font-medium mb-2">New Password</label>
+                  <input
+                    className="border border-gray-300 rounded-lg w-full py-4 px-6 text-gray-700 focus:outline-none focus:ring-2 focus:ring-red-500 transition-all"
+                    type="password"
+                    placeholder="Enter your new password"
+                    value={newPassword}
+                    onChange={(e) => setNewPassword(e.target.value)}
+                  />
+                </div>
+                <button className="bg-green-600 text-white font-bold py-4 px-6 rounded-lg w-full" onClick={handleResetPassword}>
+                  RESET PASSWORD
                 </button>
               </>
             ) : (
               <>
-                <input
-                  className="border border-gray-300 rounded-lg w-full py-4 px-6"
-                  type="text"
-                  placeholder="Enter OTP"
-                  value={otp}
-                  onChange={(e) => setOtp(e.target.value)}
-                />
+                <div className="mb-6">
+                  <label className="block text-gray-700 text-sm font-medium mb-2">Verification Code</label>
+                  <input
+                    className="border border-gray-300 rounded-lg w-full py-4 px-6 text-gray-700 focus:outline-none focus:ring-2 focus:ring-red-500 transition-all"
+                    type="text"
+                    placeholder="Enter verification code"
+                    value={otp}
+                    onChange={(e) => setOtp(e.target.value)}
+                  />
+                </div>
                 <button className="bg-green-600 text-white font-bold py-4 px-6 rounded-lg w-full" onClick={handleVerifyOtp}>
-                  VERIFY OTP
+                  VERIFY CODE
                 </button>
               </>
             )}
