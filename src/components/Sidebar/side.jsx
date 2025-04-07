@@ -8,7 +8,6 @@ import {
   faAward,
   faHandshake,
   faImages,
-  faEnvelope,
   faPowerOff,
 } from '@fortawesome/free-solid-svg-icons';
 
@@ -21,28 +20,34 @@ const Sidebar = ({ onItemClick }) => {
   };
 
   return (
-    <aside className="bg-gradient-to-b from-red-700 to-red-900 text-white w-64 h-screen flex flex-col shadow-lg">
+    <aside className="bg-gradient-to-b from-red-700 to-red-900 text-white w-72 h-screen flex flex-col shadow-lg transition-all duration-300 ease-in-out">
       {/* Logo Section */}
-      <div className="p-5 flex items-center border-b border-red-600">
-        <img src="/logo.png" alt="Logo" className="h-8" />
+      <div className="p-6 flex items-center justify-center border-b border-red-600">
+        <img
+          src="/logo.svg"
+          alt="Logo"
+          className="h-14 filter brightness-0 invert" // Adjusted logo size for balance
+        />
       </div>
 
       {/* Navigation Links */}
-      <nav className="flex-1 px-3 mt-4">
+      <nav className="flex-1 px-4 mt-8"> {/* Adjusted vertical margin */}
         {[
           { id: 'dashboard', icon: faTachometerAlt, label: 'Dashboard' },
-          { id: 'about', icon: faInfoCircle, label: 'About Us Information' },
-          { id: 'nominees', icon: faUsers, label: 'Nominees Information' },
-          { id: 'location', icon: faMapMarkerAlt, label: 'Location Information' },
-          { id: 'previous-winners', icon: faAward, label: 'Previous Won Artists' },
-          { id: 'sponsors', icon: faHandshake, label: 'Sponsors Information' },
-          { id: 'gallery', icon: faImages, label: 'Gallery Images' },
+          { id: 'about', icon: faInfoCircle, label: 'About Us' },
+          { id: 'nominees', icon: faUsers, label: 'Nominees' },
+          { id: 'location', icon: faMapMarkerAlt, label: 'Locations' },
+          { id: 'previous-winners', icon: faAward, label: 'Winners' },
+          { id: 'sponsors', icon: faHandshake, label: 'Sponsors' },
+          { id: 'gallery', icon: faImages, label: 'Gallery' },
         ].map(({ id, icon, label }) => (
           <div
             key={id}
             onClick={() => handleItemClick(id)}
-            className={`flex items-center gap-3 px-4 py-3 rounded-lg cursor-pointer transition-all ${
-              activeItem === id ? 'bg-white text-red-700 font-semibold' : 'hover:bg-red-600'
+            className={`flex items-center gap-4 px-6 py-3 rounded-lg cursor-pointer transition-all mb-3 ${
+              activeItem === id
+                ? 'bg-white text-red-700 font-semibold'
+                : 'hover:bg-red-600'
             }`}
           >
             <FontAwesomeIcon icon={icon} className="text-lg" />

@@ -1,17 +1,45 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
-import { motion } from 'framer-motion';
-import { FaPlus, FaUpload } from 'react-icons/fa';
+import { motion, AnimatePresence } from 'framer-motion';
+import { FaPlus, FaUpload, FaEdit, FaTrash, FaTimes } from 'react-icons/fa';
+import { useDropzone } from 'react-dropzone';
+import { toast, ToastContainer } from 'react-toastify';
+import 'react-toastify/dist/ReactToastify.css';
+
+const containerVariants = {
+  initial: { opacity: 0 },
+  animate: { opacity: 1, transition: { delayChildren: 0.3, staggerChildren: 0.2 } },
+};
+
+const itemVariants = {
+  initial: { opacity: 0, y: 20 },
+  animate: { opacity: 1, y: 0, transition: { duration: 0.5 } },
+};
+
+const buttonVariants = {
+  hover: { scale: 1.05 },
+  tap: { scale: 0.95 },
+};
+
+const inputStyle = 'w-full px-4 py-3 mb-4 rounded-md border border-gray-300 focus:outline-none focus:ring-2 focus:ring-red-200';
+const textareaStyle = 'w-full px-4 py-3 mb-4 rounded-md border border-gray-300 focus:outline-none focus:ring-2 focus:ring-red-200 h-32';
+const buttonStyle = 'bg-red-500 text-white py-3 px-6 rounded-md hover:bg-red-600 focus:outline-none focus:ring-2 focus:ring-red-300 disabled:opacity-50';
+const addButton = 'bg-green-500 text-white py-3 px-6 rounded-md hover:bg-green-600 focus:outline-none focus:ring-2 focus:ring-green-300 flex items-center';
+const iconStyle = 'mr-2';
+const roundCardStyle = 'bg-white bg-opacity-80 backdrop-filter backdrop-blur-lg rounded-lg shadow-md overflow-hidden cursor-pointer';
+const artistCardStyle = 'bg-gray-100 bg-opacity-70 backdrop-filter backdrop-blur-lg rounded-md p-4 mb-4';
+const imageStyle = 'w-32 h-32 object-cover rounded-md mb-2'; // Reduced width here
 
 function WonArtistsAdmin() {
   const [rounds, setRounds] = useState([]);
   const [newRound, setNewRound] = useState('');
-  const [newArtists, setNewArtists] = useState([
-    { name: '', category: '', work: '', description: '', image: null, tempId: `artist-${Date.now()}` }
-  ]);
+  const [newArtists, setNewArtists] = useState([]);
+  const [editingId, setEditingId] = useState(null);
   const [submissionStatus, setSubmissionStatus] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [showForm, setShowForm] = useState(false);
+  const [selectedRound, setSelectedRound] = useState(null);
 
   useEffect(() => {
     fetchRounds();
@@ -22,12 +50,7 @@ function WonArtistsAdmin() {
     setError(null);
     try {
       const response = await axios.get('http://localhost:5000/api/wonArtists');
-      if (Array.isArray(response.data)) {
-        setRounds(response.data);
-      } else {
-        console.error('API response is not an array:', response.data);
-        setError('Failed to fetch data. Please try again.');
-      }
+      setRounds(response.data);
     } catch (error) {
       console.error('Error fetching rounds:', error);
       setError('Failed to fetch data. Please try again.');
@@ -37,9 +60,16 @@ function WonArtistsAdmin() {
   };
 
   const handleAddArtist = () => {
-    setNewArtists([
-      ...newArtists,
-      { name: '', category: '', work: '', description: '', image: null, tempId: `artist-${Date.now()}` }
+    setNewArtists((prev) => [
+      ...prev,
+      {
+        name: '',
+        category: '',
+        work: '',
+        description: '',
+        image: null,
+        fileId: `file-${Math.random().toString(36).substr(2, 9)}`,
+      },
     ]);
   };
 
@@ -49,9 +79,9 @@ function WonArtistsAdmin() {
     setNewArtists(updatedArtists);
   };
 
-  const handleImageChange = (index, e) => {
+  const handleImageChange = (index, files) => {
     const updatedArtists = [...newArtists];
-    updatedArtists[index].image = e.target.files[0];
+    updatedArtists[index].image = files[0];
     setNewArtists(updatedArtists);
   };
 
@@ -62,154 +92,339 @@ function WonArtistsAdmin() {
     const formData = new FormData();
     formData.append('round', newRound);
 
-    // Step 1: Prepare artist data without files
     const artistsData = newArtists.map((artist) => ({
       name: artist.name,
       category: artist.category,
       work: artist.work,
       description: artist.description,
-      tempId: artist.tempId,
+      fileId: artist.fileId,
     }));
-
-    // Step 2: Append JSON stringified data
     formData.append('artists', JSON.stringify(artistsData));
 
-    // Step 3: Append files separately using dynamic keys
     newArtists.forEach((artist) => {
-      formData.append(`file-${artist.tempId}`, artist.image);
+      if (artist.image) {
+        formData.append(artist.fileId, artist.image);
+      }
     });
 
     try {
-      await axios.post('http://localhost:5000/api/wonArtists', formData, {
+      const url = editingId
+        ? `http://localhost:5000/api/wonArtists/${editingId}`
+        : 'http://localhost:5000/api/wonArtists';
+
+      const method = editingId ? 'put' : 'post';
+
+      await axios[method](url, formData, {
         headers: { 'Content-Type': 'multipart/form-data' },
       });
-      fetchRounds();
-      setNewRound('');
-      setNewArtists([{ name: '', category: '', work: '', description: '', image: null, tempId: `artist-${Date.now()}` }]);
+
+      await fetchRounds();
+      resetForm();
       setSubmissionStatus('success');
-      setTimeout(() => setSubmissionStatus(null), 3000);
+      setShowForm(false);
+      toast.success(editingId ? 'Round updated successfully!' : 'Round saved successfully!');
     } catch (error) {
       console.error('Error saving round:', error);
-      setError(error.message || 'Failed to add round.');
+      setError(error.response?.data?.message || 'Failed to save round.');
       setSubmissionStatus('error');
-      setTimeout(() => setSubmissionStatus(null), 3000);
+      toast.error('Failed to save round.');
+    } finally {
+      setSubmissionStatus(null);
     }
   };
 
-  return (
-    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="p-8 max-w-5xl mx-auto">
-      <h1 className="text-4xl font-semibold mb-8 text-gray-800">Manage Won Artists</h1>
+  const resetForm = () => {
+    setNewRound('');
+    setNewArtists([]);
+    setEditingId(null);
+  };
 
-      {loading && <p>Loading...</p>}
-      {error && <p className="text-red-600">{error}</p>}
+  const handleDeleteRound = async (id) => {
+    if (!window.confirm('Are you sure you want to delete this round?')) return;
+    try {
+      await axios.delete(`http://localhost:5000/api/wonArtists/${id}`);
+      setRounds((prev) => prev.filter((r) => r._id !== id));
+      setSubmissionStatus('deleteSuccess');
+      toast.success('Round deleted successfully!');
+    } catch (error) {
+      console.error('Error deleting round:', error);
+      setError('Failed to delete round.');
+      setSubmissionStatus('error');
+      toast.error('Failed to delete round.');
+    } finally {
+      setSubmissionStatus(null);
+    }
+  };
 
-      <form onSubmit={handleSubmit} className="mb-10">
-        <input
-          type="text"
-          placeholder="Round (e.g., The 10th)"
-          value={newRound}
-          onChange={(e) => setNewRound(e.target.value)}
-          className="border p-4 rounded-xl w-full mb-6 text-gray-700 focus:ring-2 focus:ring-red-300"
-        />
+  const startEditRound = (round) => {
+    setEditingId(round._id);
+    setNewRound(round.round);
+    setNewArtists(
+      round.artists.map((artist) => ({
+        ...artist,
+        image: null,
+        fileId: `file-${Math.random().toString(36).substr(2, 9)}`,
+      }))
+    );
+    setShowForm(true);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
 
-        {newArtists.map((artist, index) => (
-          <motion.div
-            key={artist.tempId}
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="border p-6 mb-6 rounded-xl shadow-md"
-          >
-            <input
-              type="text"
-              name="name"
-              placeholder="Artist Name"
-              value={artist.name}
-              onChange={(e) => handleArtistChange(index, e)}
-              className="border p-4 rounded-xl w-full mb-4 text-gray-700 focus:ring-2 focus:ring-red-300"
-            />
-            <input
-              type="text"
-              name="category"
-              placeholder="Category"
-              value={artist.category}
-              onChange={(e) => handleArtistChange(index, e)}
-              className="border p-4 rounded-xl w-full mb-4 text-gray-700 focus:ring-2 focus:ring-red-300"
-            />
-            <input
-              type="text"
-              name="work"
-              placeholder="Work"
-              value={artist.work}
-              onChange={(e) => handleArtistChange(index, e)}
-              className="border p-4 rounded-xl w-full mb-4 text-gray-700 focus:ring-2 focus:ring-red-300"
-            />
-            <textarea
-              name="description"
-              placeholder="Description"
-              value={artist.description}
-              onChange={(e) => handleArtistChange(index, e)}
-              className="border p-4 rounded-xl w-full mb-4 text-gray-700 focus:ring-2 focus:ring-red-300"
-            />
-            <div className="relative border p-4 rounded-xl cursor-pointer">
-              <input
-                type="file"
-                onChange={(e) => handleImageChange(index, e)}
-                className="absolute inset-0 opacity-0 w-full h-full"
-              />
-              {artist.image ? (
-                <p className="text-gray-600 truncate">{artist.image.name}</p>
-              ) : (
-                <div className="flex items-center justify-center">
-                  <FaUpload className="mr-2 text-gray-500" />
-                  <p className="text-gray-500">Click to upload image</p>
-                </div>
-              )}
+  const handleRemoveArtist = (index) => {
+    const updatedArtists = [...newArtists];
+    updatedArtists.splice(index, 1);
+    setNewArtists(updatedArtists);
+  };
+
+  const ImageUploader = ({ index, onImageChange }) => {
+    const { getRootProps, getInputProps, isDragActive } = useDropzone({
+      accept: 'image/*',
+      onDrop: (acceptedFiles) => onImageChange(index, acceptedFiles),
+      multiple: false,
+    });
+
+    return (
+      <div {...getRootProps()} className="relative rounded-md overflow-hidden">
+        <input {...getInputProps()} />
+        <label className="block py-3 px-4 text-gray-700 cursor-pointer">
+          {newArtists[index].image ? (
+            <span className="truncate">{newArtists[index].image.name}</span>
+          ) : (
+            <div className="flex items-center justify-center">
+              <FaUpload className={iconStyle} />
+              <span>{isDragActive ? 'Drop here' : 'Upload Image'}</span>
             </div>
-          </motion.div>
-        ))}
+          )}
+        </label>
+        {newArtists[index].image && (
+          <motion.img
+            src={URL.createObjectURL(newArtists[index].image)}
+            alt="Preview"
+            className={imageStyle}
+          />
+        )}
+      </div>
+    );
+  };
 
-        <div className="flex justify-between items-center mt-6">
-          <button
-            type="button"
-            onClick={handleAddArtist}
-            className="bg-green-500 text-white p-4 rounded-xl flex items-center"
+  const handleRoundClick = (round) => {
+    setSelectedRound(round);
+  };
+
+  return (
+    <motion.div
+      variants={containerVariants}
+      initial="initial"
+      animate="animate"
+      className="min-h-screen p-10 bg-gray-50 bg-opacity-50 backdrop-filter backdrop-blur-lg"
+    >
+      <ToastContainer position="top-right" autoClose={3000} hideProgressBar={false} newestOnTop closeOnClick rtl={false} pauseOnFocusLoss draggable pauseOnHover />
+      <div className="max-w-6xl mx-auto">
+        <motion.h1 variants={itemVariants} className="text-4xl font-semibold mb-8 text-gray-800 text-center">
+          Manage Won Artists
+        </motion.h1>
+
+        {loading && <motion.p variants={itemVariants} className="text-center text-gray-600">Loading...</motion.p>}
+        {error && <motion.p variants={itemVariants} className="text-center text-red-600">{error}</motion.p>}
+
+        <motion.div variants={itemVariants} className="mb-8 flex justify-end">
+          <motion.button
+            variants={buttonVariants}
+            whileHover="hover"
+            whileTap="tap"
+            onClick={() => setShowForm(!showForm)}
+            className={addButton}
           >
-            <FaPlus className="mr-2" /> Add Artist
-          </button>
-          <button type="submit" className="bg-red-600 text-white p-4 rounded-xl">
-            Save Round
-          </button>
-        </div>
+            {showForm ? 'Hide Form' : 'Add New Round'}
+          </motion.button>
+        </motion.div>
 
-        {submissionStatus === 'loading' && <p className="mt-4 text-gray-600">Saving...</p>}
-        {submissionStatus === 'success' && <p className="mt-4 text-green-600">Round added successfully!</p>}
-        {submissionStatus === 'error' && <p className="mt-4 text-red-600">Failed to add round.</p>}
-      </form>
+        <AnimatePresence>
+          {showForm && (
+            <motion.form
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0, transition: { duration: 0.5 } }}
+              exit={{ opacity: 0, y: 20, transition: { duration: 0.3 } }}
+              onSubmit={handleSubmit}
+              className="mb-10 bg-white bg-opacity-80 backdrop-filter backdrop-blur-lg p-6 rounded-md shadow-sm"
+            >
+              <motion.h2 className="text-xl font-semibold mb-4 text-gray-700">
+                {editingId ? 'Edit Round' : 'Add New Round'}
+              </motion.h2>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-        {rounds.map((round) => (
-          <motion.div
-            key={round._id}
-            initial={{ opacity: 0, scale: 0.95 }}
-            animate={{ opacity: 1, scale: 1 }}
-            className="border p-8 rounded-xl shadow-lg"
-          >
-            <h2 className="text-2xl font-semibold mb-6 text-gray-800">{round.round}</h2>
-            {round.artists.map((artist) => (
-              <div key={artist._id} className="mb-6">
-                <img
-                  src={artist.imageUrl}
-                  alt={artist.name}
-                  className="w-full h-64 object-cover rounded-xl mb-4"
-                />
-                <p className="font-semibold text-lg text-gray-700">{artist.name}</p>
-                <p className="text-gray-600">Category: {artist.category}</p>
-                <p className="text-gray-600">Work: {artist.work}</p>
-                <p className="text-gray-600">{artist.description}</p>
-              </div>
-            ))}
+              <motion.input
+                type="text"
+                placeholder="Round Title (e.g., The 10th Edition)"
+                value={newRound}
+                onChange={(e) => setNewRound(e.target.value)}
+                className={inputStyle}
+              />
+
+              <motion.div>
+                <motion.h3 className="text-lg font-semibold mb-3 text-gray-700">Artists:</motion.h3>
+                {newArtists.map((artist, index) => (
+                  <motion.div
+                    key={artist.fileId}
+                    className={`mb-4 p-4 rounded-md border border-gray-200 ${artistCardStyle}`}
+                  >
+                    <motion.div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <motion.input
+                        type="text"
+                        name="name"
+                        placeholder="Artist Name"
+                        value={artist.name}
+                        onChange={(e) => handleArtistChange(index, e)}
+                        className={inputStyle}
+                      />
+                      <motion.input
+                        type="text"
+                        name="category"
+                        placeholder="Category"
+                        value={artist.category}
+                        onChange={(e) => handleArtistChange(index, e)}
+                        className={inputStyle}
+                      />
+                      <motion.input
+                        type="text"
+                        name="work"
+                        placeholder="Work Title"
+                        value={artist.work}
+                        onChange={(e) => handleArtistChange(index, e)}
+                        className={inputStyle}
+                      />
+                      <ImageUploader index={index} onImageChange={handleImageChange} />
+                    </motion.div>
+                    <motion.textarea
+                      name="description"
+                      placeholder="Description"
+                      value={artist.description}
+                      onChange={(e) => handleArtistChange(index, e)}
+                      className={textareaStyle}
+                    />
+                    {newArtists.length > 1 && (
+                      <motion.button
+                        variants={buttonVariants}
+                        whileHover="hover"
+                        whileTap="tap"
+                        type="button"
+                        onClick={() => handleRemoveArtist(index)}
+                        className="bg-gray-300 text-gray-700 py-2 px-4 rounded-md hover:bg-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-300 text-sm"
+                      >
+                        Remove
+                      </motion.button>
+                    )}
+                  </motion.div>
+                ))}
+                <motion.button
+                  variants={buttonVariants}
+                  whileHover="hover"
+                  whileTap="tap"
+                  type="button"
+                  onClick={handleAddArtist}
+                  className={addButton}
+                >
+                  <FaPlus className={iconStyle} /> Add Artist
+                </motion.button>
+              </motion.div>
+
+              <motion.div className="flex justify-end mt-6">
+                <motion.button
+                  variants={buttonVariants}
+                  whileHover="hover"
+                  whileTap="tap"
+                  type="submit"
+                  disabled={submissionStatus === 'loading'}
+                  className={buttonStyle}
+                >
+                  {submissionStatus === 'loading' ? 'Saving...' : editingId ? 'Update Round' : 'Save Round'}
+                </motion.button>
+              </motion.div>
+            </motion.form>
+          )}
+        </AnimatePresence>
+
+        {!showForm && (
+          <motion.div variants={itemVariants} className="mt-8">
+            <motion.h2 className="text-xl font-semibold mb-4 text-gray-700">Previous Won Artists</motion.h2>
+            <div className="grid grid-cols-1 gap-6">
+              {rounds.map((round) => (
+                <motion.div
+                  key={round._id}
+                  variants={itemVariants}
+                  className={roundCardStyle}
+                  onClick={() => handleRoundClick(round)}
+                >
+                  <div className="p-6">
+                    <h3 className="text-lg font-semibold text-gray-800 mb-3">{round.round}</h3>
+                    <div className="flex justify-end mt-4">
+                      <motion.button
+                        variants={buttonVariants}
+                        whileHover="hover"
+                        whileTap="tap"
+                        onClick={(e) => { e.stopPropagation(); startEditRound(round); }}
+                        className="text-blue-600 hover:text-blue-800 font-bold text-sm mr-2 flex items-center"
+                      >
+                        <FaEdit className={iconStyle} /> Edit
+                      </motion.button>
+                      <motion.button
+                        variants={buttonVariants}
+                        whileHover="hover"
+                        whileTap="tap"
+                        onClick={(e) => { e.stopPropagation(); handleDeleteRound(round._id); }}
+                        className="text-red-600 hover:text-red-800 font-bold text-sm flex items-center"
+                      >
+                        <FaTrash className={iconStyle} /> Delete
+                      </motion.button>
+                    </div>
+                  </div>
+                </motion.div>
+              ))}
+            </div>
+
+            <AnimatePresence>
+              {selectedRound && (
+                <motion.div
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0, transition: { duration: 0.5 } }}
+                  exit={{ opacity: 0, y: 20, transition: { duration: 0.3 } }}
+                  className={`${roundCardStyle} mt-6 p-6`}
+                >
+                  <div className="flex justify-between items-center mb-4">
+                    <h3 className="text-lg font-semibold text-gray-800">{selectedRound.round}</h3>
+                    <motion.button
+                      variants={buttonVariants}
+                      whileHover="hover"
+                      whileTap="tap"
+                      onClick={() => setSelectedRound(null)}
+                      className="bg-gray-200 text-gray-600 rounded-full p-2"
+                    >
+                      <FaTimes />
+                    </motion.button>
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {selectedRound.artists.map((artist) => (
+                      <div key={artist._id} className={`${artistCardStyle} flex flex-col items-start p-4 mb-4`}>
+                        {artist.imageUrl && (
+                          <img
+                            src={artist.imageUrl}
+                            alt={artist.name}
+                            className={imageStyle}
+                          />
+                        )}
+                        <div>
+                          <p className="font-semibold text-gray-700">{artist.name}</p>
+                          <p className="text-gray-600 text-sm">Category: {artist.category}</p>
+                          <p className="text-gray-600 text-sm">Work: {artist.work}</p>
+                          {artist.description && <p className="text-gray-600 text-sm mt-1">{artist.description}</p>}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
           </motion.div>
-        ))}
+        )}
       </div>
     </motion.div>
   );

@@ -8,12 +8,11 @@ function Login() {
   const [forgotPassword, setForgotPassword] = useState(false);
   const [otp, setOtp] = useState('');
   const [otpSent, setOtpSent] = useState(false);
-  const [resetToken, setResetToken] = useState(''); // Store the reset token
+  const [resetToken, setResetToken] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
 
-  // Handle login form submission
   const handleLogin = async (e) => {
     e.preventDefault();
     setLoading(true);
@@ -37,7 +36,7 @@ function Login() {
     }
     setLoading(false);
   };
-  // Handle OTP request
+
   const handleSendOtp = async () => {
     if (!email) return alert('Please enter your email.');
     try {
@@ -58,7 +57,6 @@ function Login() {
     }
   };
 
-  // Handle OTP Verification
   const handleVerifyOtp = async () => {
     if (!otp) return alert('Please enter the verification code.');
     try {
@@ -69,7 +67,7 @@ function Login() {
       });
       if (response.ok) {
         const data = await response.json();
-        setResetToken(data.resetToken); // Store the reset token
+        setResetToken(data.resetToken);
         alert('Verification successful! You can now reset your password.');
       } else {
         const errorData = await response.json();
@@ -81,7 +79,6 @@ function Login() {
     }
   };
 
-  // Handle Password Reset
   const handleResetPassword = async () => {
     if (!newPassword) return alert('Please enter your new password.');
     try {
@@ -92,7 +89,7 @@ function Login() {
       });
       if (response.ok) {
         alert('Password reset successfully! You can now log in with your new password.');
-        setForgotPassword(false); // Go back to login form
+        setForgotPassword(false);
       } else {
         const errorData = await response.json();
         alert(errorData.message || 'Failed to reset password. Please try again.');
@@ -104,10 +101,26 @@ function Login() {
   };
 
   return (
-    <div className="min-h-screen flex bg-gradient-to-r from-red-700 to-white">
-      <div className="w-1/2 bg-red-700 text-white flex flex-col justify-center items-center p-12">
+    <div className="min-h-screen flex relative">
+      <div className="absolute inset-0 opacity-[0.15] overflow-hidden">
+        <div className="h-full w-full flex items-center justify-between rotate-180">
+          <div className="flex-1 h-full flex items-center">
+            <img className="h-full object-cover -rotate-180" alt="Left filler" src="/vector-7.svg" />
+          </div>
+          <div className="flex items-center h-full">
+            <img className="w-[575.1px] h-[575.19px] -rotate-180" alt="Vector" src="/vector-7.svg" />
+            <img className="w-[575px] h-full -rotate-180 object-cover" alt="Element" src="/vector-3-2.svg" />
+            <img className="w-[432px] h-full -rotate-180 object-cover" alt="Element" src="/vector-3-2.svg" />
+          </div>
+          <div className="flex-1 h-full flex items-center justify-end">
+            <img className="h-full object-cover -rotate-180" alt="Right filler" src="/7vector-7.svg" />
+          </div>
+        </div>
+      </div>
+
+      <div className="w-1/2 bg-red-700 text-white flex flex-col justify-center items-center p-12 relative z-10">
         <div className="max-w-xs text-center">
-          <img src="/logo.png" alt="Logo" className="w-20 mb-6" />
+          <img src="/logo.svg" alt="Logo" className="w-20 mb-6" />
           <h2 className="text-4xl font-extrabold text-white mb-4">Addis Music Awards</h2>
           <p className="text-lg text-white opacity-80 mb-4">
             Vote for your favorite nominees and celebrate excellence in music.
@@ -115,7 +128,7 @@ function Login() {
         </div>
       </div>
 
-      <div className="w-1/2 p-12 bg-white flex flex-col justify-center shadow-lg rounded-l-xl">
+      <div className="w-1/2 p-12 bg-white flex flex-col justify-center shadow-lg rounded-l-xl relative z-10">
         {!forgotPassword ? (
           <>
             <h2 className="text-3xl font-semibold text-gray-800 mb-4">Login to Your Account</h2>

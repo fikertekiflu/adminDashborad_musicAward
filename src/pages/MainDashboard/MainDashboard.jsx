@@ -8,7 +8,7 @@ import Location from '../../components/Location/location';
 import WonArtistsAdmin from '../../components/PreviousWinners/PreviousWinners';
 import SponsorsPage from '../../components/Sponsors/Sponsors';
 import GalleryPage from '../../components/Gallery/Gallery';
-// import ContactUs from '../../components/ContactUs/ContactUs';
+import AdminDashboardIntro from '../../components/DashboardContent/DashboardContent';
 
 import Sidebar from '../../components/Sidebar/side';
 import Navbar from '../../components/Navbar/navbar';
@@ -23,7 +23,7 @@ function MainDashboard() {
   const renderComponent = () => {
     switch (selectedComponent) {
       case 'dashboard':
-        return <motion.div initial={{ opacity: 0, x: 50 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -50 }} transition={{ duration: 0.3 }}>Default Dashboard Content</motion.div>;
+        return <motion.div initial={{ opacity: 0, x: 50 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -50 }} transition={{ duration: 0.3 }}><AdminDashboardIntro /></motion.div>;
       case 'about':
         return <motion.div initial={{ opacity: 0, x: 50 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -50 }} transition={{ duration: 0.3 }}><AboutUs /></motion.div>;
       case 'nominees':
@@ -48,8 +48,8 @@ function MainDashboard() {
 
       <div className="flex-1 flex flex-col overflow-hidden">
         {/* Navbar */}
-        <Navbar />
-        <main className="flex-1 overflow-x-hidden overflow-y-auto bg-gray-200 p-6">
+        {/* <Navbar /> */}
+        <main className="flex-1 overflow-x-hidden overflow-y-auto bg-gradient-to-br from-red-50 via-pink-50 to-white">
           {/* Animated Component Rendering */}
           <AnimatePresence mode="wait">
             {renderComponent()}

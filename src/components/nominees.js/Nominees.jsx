@@ -22,9 +22,9 @@ function Nominees() {
   };
 
   const handleAddClick = () => {
-    setNewNominee({ round: '', stage: '', categories: [{ category: '', artists: [{ name: '', smsNumber: '' }] }] }); // Clear form data
+    setNewNominee({ round: '', stage: '', categories: [{ category: '', artists: [{ name: '', smsNumber: '' }] }] });
     setShowAddForm(true);
-    setEditingNomineeId(null); // Ensure editing ID is cleared
+    setEditingNomineeId(null);
   };
 
   const handleCancelClick = () => {
@@ -100,12 +100,11 @@ function Nominees() {
   };
 
   return (
-    <div className="bg-gray-100 rounded-2xl shadow-lg p-8 space-y-8">
-      {/* Header */}
+    <div className="p-8 space-y-8">
       <div className="flex justify-between items-center">
         <div>
-          <h1 className="text-3xl font-semibold text-gray-800">Nominees Information</h1>
-          <p className="text-sm text-gray-500">Admin &gt; Nominees Information</p>
+          <h1 className="text-3xl font-semibold text-gray-800">Nominees Management</h1>
+          <p className="text-sm text-gray-500">Manage and view nominees for the Addis Music Awards.</p>
         </div>
         <button
           className="bg-red-600 text-white rounded-lg px-6 py-2 text-sm font-semibold hover:bg-red-700 transition-colors duration-300"
@@ -115,7 +114,6 @@ function Nominees() {
         </button>
       </div>
 
-      {/* Add/Edit Nominee Form (Conditional Rendering) */}
       {showAddForm && (
         <div className="mt-8">
           <NomineeForm
@@ -129,47 +127,50 @@ function Nominees() {
         </div>
       )}
 
-      {/* Preview Nominee (Conditional Rendering) */}
       {showPreview && (
         <div className="mt-8">
           <NomineePreview nominee={newNominee} onPost={handlePost} onCancel={handleCancelClick} />
         </div>
       )}
 
-      {/* Nominee Display or "No Data" Message */}
       {!showAddForm && !showPreview && (
         nominees.length > 0 ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {nominees.map((nominee) => (
               <div
                 key={nominee._id}
-                className="bg-white rounded-lg p-6 shadow-lg transition-transform transform hover:scale-105"
+                className="rounded-lg p-6 shadow-md transition-transform transform hover:scale-105"
               >
-                <h2 className="text-xl font-semibold text-gray-800 mb-2">{nominee.round}</h2>
-                <p className="text-sm text-gray-500 mb-4">
-                  Created at: {new Date(nominee.created).toLocaleDateString()} - {nominee.stage}
-                </p>
-                <div className="space-y-3">
-                  {nominee.categories.map((cat, index) => (
-                    <div key={index} className="flex justify-between items-center">
-                      <span className="text-sm text-gray-700">{cat.category}</span>
-                      <span className="text-sm font-semibold text-gray-800">{cat.artists.length}</span>
-                    </div>
-                  ))}
-                </div>
-                <div className="flex justify-between mt-6">
-                  <button
-                    className="text-sm text-red-600 font-semibold hover:underline"
-                    onClick={() => handleEditClick(nominee._id)}
-                  >
-                    Edit
-                  </button>
-                  <button
-                    className="text-sm text-red-600 font-semibold hover:underline"
-                    onClick={() => handleDeleteClick(nominee._id)}
-                  >
-                    Delete
-                  </button>
+                <div className="border rounded-md p-4">
+                  <h2 className="text-xl font-semibold text-gray-800 mb-2">{nominee.round}</h2>
+                  <p className="text-sm text-gray-500 mb-4">
+                    Created at: {new Date(nominee.created).toLocaleDateString()} - 
+                    <span className={`font-semibold ${nominee.stage === 'Final' ? 'text-green-600' : 'text-gray-600'}`}>
+                      {nominee.stage}
+                    </span>
+                  </p>
+                  <div className="space-y-3">
+                    {nominee.categories.map((cat, index) => (
+                      <div key={index} className="flex justify-between items-center border-b pb-2">
+                        <span className="text-sm text-gray-700">{cat.category}</span>
+                        <span className="text-sm font-semibold text-gray-800">{cat.artists.length}</span>
+                      </div>
+                    ))}
+                  </div>
+                  <div className="flex justify-between mt-6">
+                    <button
+                      className="text-sm text-red-600 font-semibold hover:underline"
+                      onClick={() => handleEditClick(nominee._id)}
+                    >
+                      Edit
+                    </button>
+                    <button
+                      className="text-sm text-red-600 font-semibold hover:underline"
+                      onClick={() => handleDeleteClick(nominee._id)}
+                    >
+                      Delete
+                    </button>
+                  </div>
                 </div>
               </div>
             ))}
@@ -182,7 +183,6 @@ function Nominees() {
   );
 }
 
-// 2. NomineeForm.jsx (Form Component - Tailwind CSS - Styled Dropdown)
 function NomineeForm({ onPreview, onCancel, nominee, setNominee, onUpdate, editingNomineeId }) {
   const [round, setRound] = useState(nominee?.round || '');
   const [stage, setStage] = useState(nominee?.stage || '');
@@ -328,7 +328,6 @@ function NomineeForm({ onPreview, onCancel, nominee, setNominee, onUpdate, editi
   );
 }
 
-// 3. NomineePreview.jsx (Preview Component)
 function NomineePreview({ nominee, onPost, onCancel }) {
   return (
     <div className="space-y-6">

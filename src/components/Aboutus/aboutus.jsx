@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import axios from 'axios';
+import { CircleLoader } from 'react-spinners';
 
 function AboutUs() {
   const [aboutUsData, setAboutUsData] = useState([]);
@@ -28,10 +29,7 @@ function AboutUs() {
         const response = await axios.get('http://localhost:5000/api/aboutus');
         if (Array.isArray(response.data.data) && response.data.data.length > 0) {
           setAboutUsData(response.data.data); // Access response.data.data here
-        } else if (Array.isArray(response.data.data) && response.data.data.length === 0) {
-          setAboutUsData([]);
         } else {
-          console.error('Data fetched is not in expected format or is empty', response.data);
           setAboutUsData([]);
         }
       } catch (error) {
@@ -153,14 +151,18 @@ function AboutUs() {
   };
 
   if (loading) {
-    return <div className="flex justify-center items-center h-screen">Loading...</div>;
+    return (
+      <div className="flex justify-center items-center h-screen">
+        <CircleLoader color="#e3342f" loading={loading} size={60} />
+      </div>
+    );
   }
 
   return (
-    <div className="bg-gray-50 rounded-2xl shadow-lg p-8 space-y-8">
+    <div className="p-8 space-y-8 bg-white rounded-xl shadow-lg mt-4">
       <div className="flex justify-between items-center">
         <div>
-          <h1 className="text-4xl font-semibold text-gray-800 tracking-tight">About Us Information</h1>
+          <h1 className="text-3xl font-semibold text-gray-800">About Us Information</h1>
           <p className="text-sm text-gray-500 mt-1">Admin &gt; About Us Information</p>
         </div>
         <button
@@ -266,11 +268,10 @@ function AboutUs() {
 
       {!showForm && (
         <>
-          <div className="overflow-x-auto rounded-lg shadow-sm">
+          <div className="overflow-x-auto rounded-lg shadow-sm bg-gray-50">
             <table className="min-w-full divide-y divide-gray-200 table-auto">
               <thead className="bg-gray-100">
                 <tr>
-                  <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Select</th>
                   <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Description</th>
                   <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Date</th>
                   <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Image</th>
@@ -280,20 +281,12 @@ function AboutUs() {
               <tbody className="bg-white divide-y divide-gray-200">
                 {currentItems.length === 0 ? (
                   <tr>
-                    <td colSpan="5" className="text-center py-4 text-gray-500">No data available</td>
+                    <td colSpan="4" className="text-center py-4 text-gray-500">No data available</td>
                   </tr>
                 ) : (
                   currentItems.map(item => (
                     <tr key={item._id} className="hover:bg-gray-50">
-                      <td className="px-6 py-4 text-sm">
-                        <input
-                          type="checkbox"
-                          checked={checkedItems.includes(item._id)}
-                          onChange={() => handleCheckboxChange(item._id)}
-                          className="form-checkbox h-4 w-4 text-red-600"
-                        />
-                      </td>
-                      <td className="px-6 py-4 text-sm">{item.description}</td>
+                      <td className="px-6 py-4 text-sm break-words max-w-xs">{item.description}</td>
                       <td className="px-6 py-4 text-sm text-gray-500">{new Date(item.createdAt).toLocaleDateString()}</td>
                       <td className="px-6 py-4 text-sm">
                         <img src={item.image} alt={item.title} className="h-16 w-16 object-cover rounded-lg" />
@@ -322,23 +315,26 @@ function AboutUs() {
           </div>
 
           <div className="mt-4 flex justify-between items-center">
-            <button
-              onClick={() => handlePageChange(currentPage - 1)}
-              className="text-gray-600"
-              disabled={currentPage === 1}
-            >
-              Previous
-            </button>
-            <div className="text-sm text-gray-600">
-              Page {currentPage} of {totalPages}
+            <div className="text-sm text-gray-500">
+              Showing {currentItems.length} of {aboutUsData.length} entries
             </div>
-            <button
-              onClick={() => handlePageChange(currentPage + 1)}
-              className="text-gray-600"
-              disabled={currentPage === totalPages}
-            >
-              Next
-            </button>
+            <div>
+              <button
+                onClick={() => handlePageChange(currentPage - 1)}
+                disabled={currentPage === 1}
+                className="px-4 py-2 text-sm font-medium text-gray-700 border rounded-md disabled:opacity-50"
+              >
+                Previous
+              </button>
+              <span className="mx-2 text-sm text-gray-500">Page {currentPage} of {totalPages}</span>
+              <button
+                onClick={() => handlePageChange(currentPage + 1)}
+                disabled={currentPage === totalPages}
+                className="px-4 py-2 text-sm font-medium text-gray-700 border rounded-md disabled:opacity-50"
+              >
+                Next
+              </button>
+            </div>
           </div>
         </>
       )}
