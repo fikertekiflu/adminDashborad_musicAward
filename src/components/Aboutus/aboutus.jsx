@@ -3,6 +3,27 @@ import { motion, AnimatePresence } from 'framer-motion';
 import axios from 'axios';
 import { CircleLoader } from 'react-spinners';
 
+const containerVariants = {
+  initial: { opacity: 0 },
+  animate: { opacity: 1, transition: { duration: 0.5 } },
+};
+
+const formVariants = {
+  initial: { opacity: 0, y: -20 },
+  animate: { opacity: 1, y: 0, transition: { duration: 0.3 } },
+  exit: { opacity: 0, y: 20, transition: { duration: 0.2 } },
+};
+
+const tableVariants = {
+  initial: { opacity: 0 },
+  animate: { opacity: 1, transition: { delayChildren: 0.2, staggerChildren: 0.1 } },
+};
+
+const rowVariants = {
+  initial: { opacity: 0, y: 10 },
+  animate: { opacity: 1, y: 0, transition: { duration: 0.3 } },
+};
+
 function AboutUs() {
   const [aboutUsData, setAboutUsData] = useState([]);
   const [currentPage, setCurrentPage] = useState(1);
@@ -15,9 +36,11 @@ function AboutUs() {
   const [description, setDescription] = useState('');
   const [editingId, setEditingId] = useState(null);
   const [successMessage, setSuccessMessage] = useState('');
+  const [errorMessage, setErrorMessage] = useState('');
   const fileInputRef = useRef(null);
   const [loading, setLoading] = useState(true);
 
+  const hasExistingInformation = aboutUsData.length > 0;
   const totalPages = Math.ceil(aboutUsData.length / itemsPerPage);
   const currentItems = aboutUsData.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
 
@@ -49,6 +72,13 @@ function AboutUs() {
     }
   }, [successMessage]);
 
+  useEffect(() => {
+    if (errorMessage) {
+      const timeout = setTimeout(() => setErrorMessage(''), 3000);
+      return () => clearTimeout(timeout);
+    }
+  }, [errorMessage]);
+
   const handlePageChange = (page) => {
     if (page >= 1 && page <= totalPages) {
       setCurrentPage(page);
@@ -72,6 +102,7 @@ function AboutUs() {
     if (fileInputRef.current) {
       fileInputRef.current.value = null;
     }
+    setErrorMessage('');
   };
 
   const handleImageChange = (e) => {
@@ -91,6 +122,11 @@ function AboutUs() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+
+    if (hasExistingInformation && !editingId) {
+      setErrorMessage('Only one About Us information is allowed. Please edit or delete the existing one to add new.');
+      return;
+    }
 
     const formData = new FormData();
     formData.append('title', title);
@@ -116,7 +152,7 @@ function AboutUs() {
           headers: { 'Content-Type': 'multipart/form-data' },
         });
 
-        setAboutUsData(prev => [response.data.data, ...prev]);
+        setAboutUsData([response.data.data]); // Replace existing with the new one
         setSuccessMessage('Information added successfully!');
       }
 
@@ -124,8 +160,17 @@ function AboutUs() {
 
     } catch (error) {
       console.error("Error submitting About Us info:", error);
-      setSuccessMessage('Error processing request.');
+      setErrorMessage('Error processing request.');
     }
+  };
+
+  const handleAddInformationClick = () => {
+    if (hasExistingInformation) {
+      setErrorMessage('Only one About Us information is allowed. Please edit or delete the existing one to add new.');
+      return;
+    }
+    resetForm();
+    setShowForm(true);
   };
 
   const handleEditInformation = (id) => {
@@ -136,17 +181,18 @@ function AboutUs() {
       setDescription(item.description);
       setSelectedImage(item.image);
       setShowForm(true);
+      setErrorMessage('');
     }
   };
 
   const handleDeleteInformation = async (id) => {
     try {
       await axios.delete(`http://localhost:5000/api/aboutus/${id}`);
-      setAboutUsData(prev => prev.filter(item => item._id !== id));
+      setAboutUsData([]); // Clear the data after deletion
       setSuccessMessage('Information deleted successfully!');
     } catch (error) {
       console.error("Error deleting About Us info:", error);
-      setSuccessMessage('Error deleting request.');
+      setErrorMessage('Error deleting request.');
     }
   };
 
@@ -159,18 +205,21 @@ function AboutUs() {
   }
 
   return (
-    <div className="p-8 space-y-8 bg-white rounded-xl shadow-lg mt-4">
+    <motion.div
+      variants={containerVariants}
+      initial="initial"
+      animate="animate"
+      className="p-8 space-y-8 bg-white rounded-xl shadow-lg mt-4"
+    >
       <div className="flex justify-between items-center">
         <div>
           <h1 className="text-3xl font-semibold text-gray-800">About Us Information</h1>
           <p className="text-sm text-gray-500 mt-1">Admin &gt; About Us Information</p>
         </div>
         <button
-          className="bg-red-600 text-white rounded-lg px-6 py-2 text-sm font-semibold hover:bg-red-700"
-          onClick={() => {
-            resetForm();
-            setShowForm(true);
-          }}
+          className={`bg-red-600 text-white rounded-lg px-6 py-2 text-sm font-semibold hover:bg-red-700 ${hasExistingInformation && !editingId ? 'opacity-50 cursor-not-allowed' : ''}`}
+          onClick={handleAddInformationClick}
+          disabled={hasExistingInformation && !editingId}
         >
           + Add Information
         </button>
@@ -182,15 +231,21 @@ function AboutUs() {
         </div>
       )}
 
+      {errorMessage && (
+        <div className="bg-red-100 text-red-700 p-4 rounded-md">
+          <p>{errorMessage}</p>
+        </div>
+      )}
+
       <AnimatePresence>
         {showForm && (
           <motion.div
             key="form"
             className="bg-white rounded-lg shadow-md p-6 mt-6"
-            initial={{ opacity: 0, y: -20 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: 20 }}
-            transition={{ duration: 0.3 }}
+            variants={formVariants}
+            initial="initial"
+            animate="animate"
+            exit="exit"
           >
             <h2 className="text-2xl font-semibold mb-4 text-gray-800">{editingId ? 'Edit Information' : 'Add New Information'}</h2>
 
@@ -268,7 +323,12 @@ function AboutUs() {
 
       {!showForm && (
         <>
-          <div className="overflow-x-auto rounded-lg shadow-sm bg-gray-50">
+          <motion.div
+            className="overflow-x-auto rounded-lg shadow-sm bg-gray-50"
+            variants={tableVariants}
+            initial="initial"
+            animate="animate"
+          >
             <table className="min-w-full divide-y divide-gray-200 table-auto">
               <thead className="bg-gray-100">
                 <tr>
@@ -285,7 +345,7 @@ function AboutUs() {
                   </tr>
                 ) : (
                   currentItems.map(item => (
-                    <tr key={item._id} className="hover:bg-gray-50">
+                    <motion.tr key={item._id} className="hover:bg-gray-50" variants={rowVariants}>
                       <td className="px-6 py-4 text-sm break-words max-w-xs">{item.description}</td>
                       <td className="px-6 py-4 text-sm text-gray-500">{new Date(item.createdAt).toLocaleDateString()}</td>
                       <td className="px-6 py-4 text-sm">
@@ -307,12 +367,12 @@ function AboutUs() {
                           </button>
                         </div>
                       </td>
-                    </tr>
+                    </motion.tr>
                   ))
                 )}
               </tbody>
             </table>
-          </div>
+          </motion.div>
 
           <div className="mt-4 flex justify-between items-center">
             <div className="text-sm text-gray-500">
@@ -338,7 +398,7 @@ function AboutUs() {
           </div>
         </>
       )}
-    </div>
+    </motion.div>
   );
 }
 

@@ -28,7 +28,7 @@ const addButton = 'bg-green-500 text-white py-3 px-6 rounded-md hover:bg-green-6
 const iconStyle = 'mr-2';
 const roundCardStyle = 'bg-white bg-opacity-80 backdrop-filter backdrop-blur-lg rounded-lg shadow-md overflow-hidden cursor-pointer';
 const artistCardStyle = 'bg-gray-100 bg-opacity-70 backdrop-filter backdrop-blur-lg rounded-md p-4 mb-4';
-const imageStyle = 'w-32 h-32 object-cover rounded-md mb-2'; // Reduced width here
+const imageStyle = 'w-32 h-32 object-cover rounded-md mb-2';
 
 function WonArtistsAdmin() {
   const [rounds, setRounds] = useState([]);
@@ -68,10 +68,11 @@ function WonArtistsAdmin() {
         work: '',
         description: '',
         image: null,
-        fileId: `file-${Math.random().toString(36).substr(2, 9)}`,
-      },
+        imageUrl: null,
+        fileId: `file-${Math.random().toString(36).substr(2, 9)}`
+      }
     ]);
-  };
+  }
 
   const handleArtistChange = (index, e) => {
     const updatedArtists = [...newArtists];
@@ -82,6 +83,7 @@ function WonArtistsAdmin() {
   const handleImageChange = (index, files) => {
     const updatedArtists = [...newArtists];
     updatedArtists[index].image = files[0];
+    updatedArtists[index].imageUrl = null;
     setNewArtists(updatedArtists);
   };
 
@@ -93,46 +95,50 @@ function WonArtistsAdmin() {
     formData.append('round', newRound);
 
     const artistsData = newArtists.map((artist) => ({
-      name: artist.name,
-      category: artist.category,
-      work: artist.work,
-      description: artist.description,
-      fileId: artist.fileId,
+        _id: artist._id, // Include the _id for identifying existing artists
+        name: artist.name,
+        category: artist.category,
+        work: artist.work,
+        description: artist.description,
+        imageUrl: artist.imageUrl,
+        cloudinary_id: artist.cloudinary_id,
+        fileId: artist.fileId,
     }));
     formData.append('artists', JSON.stringify(artistsData));
 
     newArtists.forEach((artist) => {
-      if (artist.image) {
-        formData.append(artist.fileId, artist.image);
-      }
+        if (artist.image) {
+            formData.append(artist.fileId, artist.image);
+        }
     });
 
     try {
-      const url = editingId
-        ? `http://localhost:5000/api/wonArtists/${editingId}`
-        : 'http://localhost:5000/api/wonArtists';
+        const url = editingId
+            ? `http://localhost:5000/api/wonArtists/${editingId}`
+            : 'http://localhost:5000/api/wonArtists';
 
-      const method = editingId ? 'put' : 'post';
+        const method = editingId ? 'put' : 'post';
 
-      await axios[method](url, formData, {
-        headers: { 'Content-Type': 'multipart/form-data' },
-      });
+        console.log("Frontend: Sending FormData:", formData.get('round'), formData.get('artists'), [...formData.entries()]); // Log FormData
 
-      await fetchRounds();
-      resetForm();
-      setSubmissionStatus('success');
-      setShowForm(false);
-      toast.success(editingId ? 'Round updated successfully!' : 'Round saved successfully!');
+        await axios[method](url, formData, {
+            headers: { 'Content-Type': 'multipart/form-data' },
+        });
+
+        await fetchRounds();
+        resetForm();
+        setSubmissionStatus('success');
+        setShowForm(false);
+        toast.success(editingId ? 'Round updated successfully!' : 'Round saved successfully!');
     } catch (error) {
-      console.error('Error saving round:', error);
-      setError(error.response?.data?.message || 'Failed to save round.');
-      setSubmissionStatus('error');
-      toast.error('Failed to save round.');
+        console.error('Error saving round:', error);
+        setError(error.response?.data?.message || 'Failed to save round.');
+        setSubmissionStatus('error');
+        toast.error('Failed to save round.');
     } finally {
-      setSubmissionStatus(null);
+        setSubmissionStatus(null);
     }
-  };
-
+};
   const resetForm = () => {
     setNewRound('');
     setNewArtists([]);
@@ -160,15 +166,15 @@ function WonArtistsAdmin() {
     setEditingId(round._id);
     setNewRound(round.round);
     setNewArtists(
-      round.artists.map((artist) => ({
-        ...artist,
-        image: null,
-        fileId: `file-${Math.random().toString(36).substr(2, 9)}`,
-      }))
+        round.artists.map((artist) => ({
+            ...artist,
+            fileId: `file-${Math.random().toString(36).substr(2, 9)}`, // Generate a new fileId for potential new uploads
+            // Importantly, keep the existing _id, imageUrl, and cloudinary_id
+        }))
     );
     setShowForm(true);
     window.scrollTo({ top: 0, behavior: 'smooth' });
-  };
+};
 
   const handleRemoveArtist = (index) => {
     const updatedArtists = [...newArtists];
@@ -176,19 +182,20 @@ function WonArtistsAdmin() {
     setNewArtists(updatedArtists);
   };
 
-  const ImageUploader = ({ index, onImageChange }) => {
+  const ImageUploader = ({ index, onImageChange, existingImageUrl }) => {
     const { getRootProps, getInputProps, isDragActive } = useDropzone({
       accept: 'image/*',
       onDrop: (acceptedFiles) => onImageChange(index, acceptedFiles),
       multiple: false,
     });
-
     return (
       <div {...getRootProps()} className="relative rounded-md overflow-hidden">
         <input {...getInputProps()} />
         <label className="block py-3 px-4 text-gray-700 cursor-pointer">
           {newArtists[index].image ? (
             <span className="truncate">{newArtists[index].image.name}</span>
+          ) : existingImageUrl ? (
+            <img src={existingImageUrl} alt="Existing" className={imageStyle} />
           ) : (
             <div className="flex items-center justify-center">
               <FaUpload className={iconStyle} />
@@ -259,7 +266,6 @@ function WonArtistsAdmin() {
                 onChange={(e) => setNewRound(e.target.value)}
                 className={inputStyle}
               />
-
               <motion.div>
                 <motion.h3 className="text-lg font-semibold mb-3 text-gray-700">Artists:</motion.h3>
                 {newArtists.map((artist, index) => (
@@ -292,7 +298,11 @@ function WonArtistsAdmin() {
                         onChange={(e) => handleArtistChange(index, e)}
                         className={inputStyle}
                       />
-                      <ImageUploader index={index} onImageChange={handleImageChange} />
+                      <ImageUploader
+                        index={index}
+                        onImageChange={handleImageChange}
+                        existingImageUrl={artist.imageUrl}
+                      />
                     </motion.div>
                     <motion.textarea
                       name="description"
@@ -342,7 +352,6 @@ function WonArtistsAdmin() {
             </motion.form>
           )}
         </AnimatePresence>
-
         {!showForm && (
           <motion.div variants={itemVariants} className="mt-8">
             <motion.h2 className="text-xl font-semibold mb-4 text-gray-700">Previous Won Artists</motion.h2>
@@ -380,7 +389,6 @@ function WonArtistsAdmin() {
                 </motion.div>
               ))}
             </div>
-
             <AnimatePresence>
               {selectedRound && (
                 <motion.div
@@ -396,7 +404,7 @@ function WonArtistsAdmin() {
                       whileHover="hover"
                       whileTap="tap"
                       onClick={() => setSelectedRound(null)}
-                      className="bg-gray-200 text-gray-600 rounded-full p-2"
+                      className="bg-gray-200 text-gray-600 rounded -full p-2"
                     >
                       <FaTimes />
                     </motion.button>
@@ -429,5 +437,4 @@ function WonArtistsAdmin() {
     </motion.div>
   );
 }
-
 export default WonArtistsAdmin;
